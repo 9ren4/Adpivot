@@ -72,7 +72,8 @@ async function handleMessage(
 chrome.tabs.onRemoved.addListener(tabId => {
   const { redirectTabId } = getState()
   if (tabId === redirectTabId) {
-    setState({ redirectTabId: null })
+    // User closed the redirect tab manually — full reset so the next ad works
+    resetState()
   }
 })
 

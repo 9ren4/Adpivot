@@ -19,6 +19,8 @@ export function createMutationDetector(onStateChange: DetectorCallback): () => v
 
   const observer = new MutationObserver(check)
   observer.observe(player, { attributes: true, attributeFilter: ['class'] })
+  // Fire once immediately so we catch an ad already showing when we attach
+  check()
 
   return () => observer.disconnect()
 }

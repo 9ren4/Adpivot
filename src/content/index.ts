@@ -3,6 +3,7 @@ import { createVideoEventDetector } from './detector/video-events'
 import { createPollingDetector } from './detector/polling'
 import { createSkipDetector } from './detector/skip'
 import { sendAdState, onContextInvalidated } from './messenger'
+import { isAdShowing } from '../utils/youtube'
 
 const POLLING_FALLBACK_TIMEOUT_MS = 90_000
 const PLAYER_WAIT_INTERVAL_MS = 500
@@ -51,6 +52,10 @@ function teardown(): void {
     clearTimeout(pollingTimeout)
     pollingTimeout = null
   }
+  if (adActive) {
+    // Tell the background the ad cycle is over so its guard resets
+    sendAdState(false)
+  }
   adActive = false
 }
 
@@ -64,6 +69,9 @@ function init(): void {
   initRetryTimer = null
   cleanupMutation = createMutationDetector(handleStateChange)
   cleanupVideoEvents = createVideoEventDetector(handleStateChange)
+  // If an ad is already showing when we attach (e.g. playlist auto-advance),
+  // the mutation observer won't fire — trigger immediately instead.
+  if (isAdShowing(player)) handleStateChange(true)
 }
 
 onContextInvalidated(teardown)
