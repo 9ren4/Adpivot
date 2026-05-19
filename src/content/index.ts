@@ -6,7 +6,6 @@ import { sendAdState, onContextInvalidated } from './messenger'
 
 const POLLING_FALLBACK_TIMEOUT_MS = 90_000
 const PLAYER_WAIT_INTERVAL_MS = 500
-const NAVIGATE_REINIT_DELAY_MS = 600
 
 let adActive = false
 let pollingTimeout: ReturnType<typeof setTimeout> | null = null
@@ -37,7 +36,6 @@ function handleStateChange(isAd: boolean): void {
 }
 
 function teardown(): void {
-  // Cancel any pending init retry so it can't create stale detectors
   if (initRetryTimer !== null) {
     clearTimeout(initRetryTimer)
     initRetryTimer = null
@@ -57,6 +55,7 @@ function teardown(): void {
 }
 
 function init(): void {
+  if (cleanupMutation !== null) return
   const player = document.querySelector('#movie_player')
   if (!player) {
     initRetryTimer = setTimeout(init, PLAYER_WAIT_INTERVAL_MS)
@@ -71,9 +70,7 @@ onContextInvalidated(teardown)
 
 init()
 
-// YouTube SPA navigation: tear down immediately, reinit after a short delay
-// so the new player element is ready before we attach observers
-window.addEventListener('yt-navigate-start', teardown)
 window.addEventListener('yt-navigate-finish', () => {
-  initRetryTimer = setTimeout(init, NAVIGATE_REINIT_DELAY_MS)
+  teardown()
+  init()
 })
