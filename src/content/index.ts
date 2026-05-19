@@ -2,7 +2,7 @@ import { createMutationDetector } from './detector/mutation'
 import { createVideoEventDetector } from './detector/video-events'
 import { createPollingDetector } from './detector/polling'
 import { createSkipDetector } from './detector/skip'
-import { sendAdState } from './messenger'
+import { sendAdState, onContextInvalidated } from './messenger'
 
 const POLLING_FALLBACK_TIMEOUT_MS = 90_000
 const PLAYER_WAIT_INTERVAL_MS = 1000
@@ -57,6 +57,8 @@ function init(): void {
   cleanupMutation = createMutationDetector(handleStateChange)
   cleanupVideoEvents = createVideoEventDetector(handleStateChange)
 }
+
+onContextInvalidated(teardown)
 
 init()
 
