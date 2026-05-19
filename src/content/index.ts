@@ -5,10 +5,12 @@ import { createSkipDetector } from './detector/skip'
 import { sendAdState, onContextInvalidated } from './messenger'
 
 const POLLING_FALLBACK_TIMEOUT_MS = 90_000
-const PLAYER_WAIT_INTERVAL_MS = 1000
+const PLAYER_WAIT_INTERVAL_MS = 500
+const NAVIGATE_REINIT_DELAY_MS = 600
 
 let adActive = false
 let pollingTimeout: ReturnType<typeof setTimeout> | null = null
+let initRetryTimer: ReturnType<typeof setTimeout> | null = null
 let cleanupMutation: (() => void) | null = null
 let cleanupVideoEvents: (() => void) | null = null
 let cleanupSkip: (() => void) | null = null
@@ -35,8 +37,15 @@ function handleStateChange(isAd: boolean): void {
 }
 
 function teardown(): void {
+  // Cancel any pending init retry so it can't create stale detectors
+  if (initRetryTimer !== null) {
+    clearTimeout(initRetryTimer)
+    initRetryTimer = null
+  }
   cleanupMutation?.()
+  cleanupMutation = null
   cleanupVideoEvents?.()
+  cleanupVideoEvents = null
   cleanupSkip?.()
   cleanupSkip = null
   polling.deactivate()
@@ -50,10 +59,10 @@ function teardown(): void {
 function init(): void {
   const player = document.querySelector('#movie_player')
   if (!player) {
-    setTimeout(init, PLAYER_WAIT_INTERVAL_MS)
+    initRetryTimer = setTimeout(init, PLAYER_WAIT_INTERVAL_MS)
     return
   }
-
+  initRetryTimer = null
   cleanupMutation = createMutationDetector(handleStateChange)
   cleanupVideoEvents = createVideoEventDetector(handleStateChange)
 }
@@ -62,8 +71,9 @@ onContextInvalidated(teardown)
 
 init()
 
-// Re-initialise on YouTube SPA navigation
+// YouTube SPA navigation: tear down immediately, reinit after a short delay
+// so the new player element is ready before we attach observers
+window.addEventListener('yt-navigate-start', teardown)
 window.addEventListener('yt-navigate-finish', () => {
-  teardown()
-  init()
+  initRetryTimer = setTimeout(init, NAVIGATE_REINIT_DELAY_MS)
 })

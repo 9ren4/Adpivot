@@ -14,7 +14,11 @@ function handleInvalidation(): void {
   invalidationHandler = null
 }
 
-export function sendAdState(isAd: boolean): void {
+function isTransientError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('Receiving end does not exist')
+}
+
+export function sendAdState(isAd: boolean, attempt = 0): void {
   if (!isContextValid()) {
     handleInvalidation()
     return
@@ -25,6 +29,11 @@ export function sendAdState(isAd: boolean): void {
       .catch((err: unknown) => {
         if (err instanceof Error && err.message.includes('context invalidated')) {
           handleInvalidation()
+          return
+        }
+        // Service worker was sleeping — retry once after a short delay
+        if (isTransientError(err) && attempt === 0) {
+          setTimeout(() => sendAdState(isAd, 1), 200)
         }
       })
   } catch {
